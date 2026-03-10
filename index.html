@@ -568,14 +568,107 @@ body {
   /* Hide badge glow effects */
   .badge-wrap, .badge { box-shadow: none !important; }
 }
+.headbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:56px;
+  background:rgba(13,7,32,0.82);
+  border-bottom:1px solid rgba(139,92,246,.18);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 2px 32px rgba(124,58,237,.1);
+}
+.hb-logo{
+  text-decoration:none;color:var(--text);display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.hb-logo-text{font-family:'Outfit',sans-serif;font-size:22px;color:#fff;line-height:1;position:relative;}
+.hb-logo-text .oryn{font-weight:700;letter-spacing:2px;text-transform:uppercase;position:relative;}
+.hb-logo-text .tech{font-weight:500;letter-spacing:1.2px;}
+/* Comet canvas sits behind ORYN text */
+.oryn-comet{
+  position:absolute;inset:0;
+  pointer-events:none;
+  width:100%;height:100%;
+}
+/* ─── GLOBE LOGO ─── */
+.globe-wrap{
+  position:relative;width:48px;height:48px;flex-shrink:0;
+}
+.globe-canvas{
+  position:absolute;inset:0;width:44px;height:44px;display:block;
+}
+.hb-nav{display:flex;align-items:center;gap:4px;}
+.hb-nav a{
+  font-size:12px;font-weight:500;color:#b0aacf;text-decoration:none;
+  padding:6px 14px;border-radius:8px;
+  transition:color .2s,background .2s;letter-spacing:.3px;
+  display:flex;align-items:center;gap:5px;
+}
+.hb-nav a .material-symbols-rounded{font-size:14px;}
+.hb-nav a:hover{color:var(--text);background:rgba(139,92,246,.12);}
+.hb-nav a.active{color:var(--text);background:rgba(139,92,246,.12);}
+.hb-login{
+  font-size:11.5px;font-weight:600;letter-spacing:.5px;color:var(--text);
+  text-decoration:none;padding:7px 16px;border-radius:9px;
+  border:1px solid rgba(139,92,246,.35);
+  background:rgba(124,58,237,.12);
+  transition:all .2s;display:flex;align-items:center;gap:5px;flex-shrink:0;
+}
+.hb-login .material-symbols-rounded{font-size:14px;color:rgba(167,139,250,.8);}
+.hb-login:hover{background:rgba(124,58,237,.25);border-color:rgba(167,139,250,.6);box-shadow:0 0 20px rgba(124,58,237,.2);}
+.hb-mobile-btn{display:none;background:none;border:none;cursor:pointer;color:#b0aacf;padding:4px;}
+.hb-mobile-btn .material-symbols-rounded{font-size:22px;}
+.page{padding-top:80px!important;}
+@media(max-width:700px){
+  .headbar{padding:0 16px;}
+  .hb-nav{display:none;position:fixed;top:56px;left:0;right:0;
+    flex-direction:column;align-items:stretch;gap:2px;
+    background:rgba(13,7,32,.97);border-bottom:1px solid rgba(139,92,246,.2);
+    padding:10px 12px 14px;backdrop-filter:blur(20px);}
+  .hb-nav.open{display:flex;}
+  .hb-nav a{font-size:13px;padding:10px 14px;}
+  .hb-mobile-btn{display:flex;align-items:center;}
+}
+
+/* ─── page top padding ─── */
+.page{padding-top:80px!important;}
 </style>
 </head>
 <body>
 
+<header class="headbar">
+  <a href="http://oryntech.ai" class="hb-logo">
+    <div class="globe-wrap">
+      <canvas class="globe-canvas" id="logoCanvas" width="72" height="72"></canvas>
+    </div>
+    <span class="hb-logo-text"><span class="oryn" id="orynSpan"><canvas class="oryn-comet" id="orynComet"></canvas>ORYN</span><span class="tech">Tech</span></span>
+  </a>
+  <nav class="hb-nav" id="hbNav">
+    <a href="http://oryntech.ai/trial.html">
+      <span class="material-symbols-rounded">rocket_launch</span>
+      Try for free
+    </a>
+    <a href="http://oryntech.ai/tutorials.html">
+      <span class="material-symbols-rounded">play_circle</span>
+      Tutoriale
+    </a>
+  </nav>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="http://client.oryntech.ai" class="hb-login" target="_blank">
+      <span class="material-symbols-rounded">lock_open</span>
+      Login Clienți
+    </a>
+    <button class="hb-mobile-btn" id="hbToggle" aria-label="Menu">
+      <span class="material-symbols-rounded" id="hbIcon">menu</span>
+    </button>
+  </div>
+</header>
+
+
+
 <!-- parallax galaxy canvas -->
 <canvas id="galaxyCanvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
 
-<div class="page">
+<div class="page" style="padding-top:80px">
 
   <!-- HERO -->
   <div class="hero">
@@ -1225,6 +1318,665 @@ document.querySelectorAll('.bi-row').forEach(row => {
   lerpMouse();
   frame();
 })();
+
+
+/* ─── LOGO GLOBE CANVAS ─── */
+(function(){
+  const cv = document.getElementById('logoCanvas');
+  if(!cv) return;
+
+  /* ── Sharp canvas at any zoom/DPR ──
+     We listen for changes and resize accordingly.
+     imageRendering: pixelated would actually hurt — we want crisp AA.
+     The trick: always use actual devicePixelRatio, and also handle
+     window resize (which changes effective DPR on some browsers). */
+  const SIZE = 44; // CSS px — fixed display size
+  let DPR = 1;
+
+  function setupCanvas() {
+    DPR = Math.min(window.devicePixelRatio || 1, 4); // support up to 4x (hi-DPI zoom)
+    cv.width  = Math.round(SIZE * DPR);
+    cv.height = Math.round(SIZE * DPR);
+    cv.style.width  = SIZE + 'px';
+    cv.style.height = SIZE + 'px';
+    // Disable any CSS smoothing
+    cv.style.imageRendering = 'crisp-edges';
+  }
+  setupCanvas();
+  // Re-setup if zoom changes (fires on resize + zoom in Chrome/Firefox)
+  window.addEventListener('resize', setupCanvas);
+
+  const ctx = cv.getContext('2d', { alpha: true });
+
+  const CX = SIZE/2, CY = SIZE/2, R = 11.2;
+
+  /* ── Nodes ── phi=polar[0..PI], th=azimuth[0..2PI]
+     11 nodes, well spread: top band, mid, lower, south */
+  const NODES = [
+    [0.5, 0.3],  [0.55,2.1],  [0.6, 4.0],
+    [1.05,0.9],  [1.0, 2.6],  [1.1, 4.5],  [1.0,5.8],
+    [1.6, 1.5],  [1.55,3.3],  [1.7, 5.1],
+    [2.2, 2.2],
+  ];
+  const EDGES = [
+    [0,3],[0,1],[1,4],[1,3],[2,5],[2,6],
+    [3,4],[3,7],[4,5],[4,8],[5,6],[5,9],
+    [6,9],[7,8],[7,10],[8,9],[8,10],[9,10]
+  ];
+  const SPIN = 0.07; // globe spin speed (rad/s)
+  const TILT = 0.40; // globe X-axis tilt (rad)
+
+  /* Project spherical (phi,th) → canvas {x,y,z}
+     z: +1=front, -1=back  */
+  function proj(phi, th) {
+    const gx = Math.sin(phi)*Math.sin(th);
+    const gy = Math.cos(phi);
+    const gz = Math.sin(phi)*Math.cos(th);
+    const sy =  gy*Math.cos(TILT) - gz*Math.sin(TILT);
+    const sz =  gy*Math.sin(TILT) + gz*Math.cos(TILT);
+    return { x: CX+gx*R, y: CY-sy*R, z: sz };
+  }
+
+  /* Great-circle arc via slerp */
+  function greatArc(phi1,th1, phi2,th2, steps) {
+    const v1=[Math.sin(phi1)*Math.sin(th1), Math.cos(phi1), Math.sin(phi1)*Math.cos(th1)];
+    const v2=[Math.sin(phi2)*Math.sin(th2), Math.cos(phi2), Math.sin(phi2)*Math.cos(th2)];
+    const dot=Math.max(-1,Math.min(1, v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2]));
+    const omega=Math.acos(dot);
+    const pts=[];
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      let vx,vy,vz;
+      if(omega<0.001){vx=v1[0];vy=v1[1];vz=v1[2];}
+      else{
+        const sa=Math.sin((1-t)*omega)/Math.sin(omega);
+        const sb=Math.sin(t*omega)/Math.sin(omega);
+        vx=sa*v1[0]+sb*v2[0]; vy=sa*v1[1]+sb*v2[1]; vz=sa*v1[2]+sb*v2[2];
+      }
+      const sy=vy*Math.cos(TILT)-vz*Math.sin(TILT);
+      const sz=vy*Math.sin(TILT)+vz*Math.cos(TILT);
+      pts.push({x:CX+vx*R, y:CY-sy*R, z:sz});
+    }
+    return pts;
+  }
+
+  const pulses=EDGES.map((_,i)=>({t:-(i/EDGES.length), spd:0.14+Math.random()*0.22}));
+
+  /* ── Orbit with TRUE perspective ──
+
+     The rocket travels on a tilted ellipse in 3D.
+     We define the orbit plane in 3D and project with the same
+     perspective rules as the globe nodes.
+
+     Orbit plane: tilted ~40° from horizontal, diagonal left-bottom → right-top.
+
+     In orbit-local coords:
+       angle=0   → rightmost point (3 o'clock)
+       angle=PI/2 → "into screen" (behind globe)
+       angle=PI  → leftmost (9 o'clock)
+       angle=3PI/2 → "out of screen" (front of globe)
+
+     We map local orbit coords to 3D world, apply globe TILT, get screen xy + depth z.
+
+     Orbit axes in world space:
+       U = orbit "horizontal" direction
+       V = orbit "depth" direction (into/out of screen)
+     The ellipse: pos = cos(a)*U*OA + sin(a)*V*OB
+     OA > R so rocket clears the globe visually.
+     OB controls how far in/out of screen it goes.
+
+     We choose:
+       U = normalize(cos(OT), -sin(OT)*sinTILT,  sin(OT)*cosTILT)  — diagonal in screen
+       V = (0, cosTILT, sinTILT)  — straight into/out of screen after tilt
+     This gives a clean diagonal ellipse with correct depth.
+  */
+  const OA = R+6.5,  OB = R*1.1;   // OB large → deep perspective travel
+  const cosTILT=Math.cos(TILT), sinTILT=Math.sin(TILT);
+
+  /* Orbit axes — explicitly screen-space:
+     U = screen right(+x) AND screen up(-y) → normalized diagonal stânga-jos→dreapta-sus
+     In canvas coords: right = +x, DOWN = +y, so UP = -y.
+     U screen = (1, -1) normalized = (0.707, -0.707)
+     We need to map screen-U back to world 3D for the projection.
+     Simpler: just use screenX and screenY directly.
+     
+     Orbit is a 2D ellipse in SCREEN space, tilted 45° so:
+       major axis along screen (right, up) = (+1,-1)/sqrt2
+       minor axis = depth (in/out of screen) = world Z after tilt
+     
+     Rocket screen position:
+       sx = CX + cos(a)*OA * cos45  + depth_offset_x (≈0 for V)
+       sy = CY + cos(a)*OA * (-sin45) + sin(a)*OB_screen_y
+     
+     Actually cleanest: define orbit entirely in SCREEN x,y + depth:
+       screenX = CX + cos(a)*OA*cos(PI/4)          = CX + cos(a)*OA*0.707
+       screenY = CY + cos(a)*OA*(-sin(PI/4))        = CY - cos(a)*OA*0.707  [UP = -y]
+       depth   = sin(a)*OB  (+1=front, -1=back)
+  */
+  const OA_DIAG = OA * 0.707; // projected onto each screen axis (45°)
+  const PHASE_OFFSET = Math.PI; // angle=PI → cos=-1 → stânga-jos start
+
+  let orbitAngle = PHASE_OFFSET;
+  let smoothH = 0;
+
+  /* Comet tail ring buffer */
+  const TAIL = 28;
+  const tailX=new Float32Array(TAIL).fill(CX);
+  const tailY=new Float32Array(TAIL).fill(CY);
+  const tailA=new Float32Array(TAIL).fill(0); // opacity at each point
+  let tPtr=0, tFill=0;
+
+  function pushTail(x,y,op){
+    tailX[tPtr]=x; tailY[tPtr]=y; tailA[tPtr]=op;
+    tPtr=(tPtr+1)%TAIL; if(tFill<TAIL) tFill++;
+  }
+
+  function drawTail() {
+    if(tFill<3) return;
+    ctx.save();
+    ctx.lineCap='round';
+    for(let i=1;i<Math.min(tFill,TAIL)-1;i++){
+      const a=(tPtr-i+TAIL)%TAIL;
+      const b=(tPtr-i-1+TAIL)%TAIL;
+      const t=i/(TAIL-1);
+      const headOp=tailA[(tPtr-1+TAIL)%TAIL];
+      const segAlpha=(1-t)*headOp*0.55;
+      if(segAlpha<0.01) continue;
+      const w=Math.max(0.2,(1-t)*2.0);
+      ctx.beginPath();
+      ctx.moveTo(tailX[b],tailY[b]);
+      ctx.lineTo(tailX[a],tailY[a]);
+      ctx.strokeStyle=`rgba(220,170,255,${segAlpha})`;
+      ctx.lineWidth=w;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function rocketState(dt) {
+    orbitAngle += dt * 0.9; // ~7s per orbit
+
+    const a  = orbitAngle;
+    const ca = Math.cos(a), sa = Math.sin(a);
+
+    /* Screen-space orbit:
+       Major axis = diagonal (right,up) on screen → x+, y-
+       Minor axis = depth (in/out of screen)
+       angle=0   → rightmost point  (CX+OA_DIAG, CY-OA_DIAG) = top-right
+       angle=PI  → leftmost point   (CX-OA_DIAG, CY+OA_DIAG) = bottom-left ← START
+       angle=PI/2→ deepest (behind globe)
+       angle=3PI/2→ front (closest)
+       Going from PI→2PI→PI: bottom-left → behind → top-right → front → bottom-left
+    */
+    const screenX = CX + ca * OA_DIAG;
+    const screenY = CY - ca * OA_DIAG; // -y = up on screen
+
+    // Depth: NEGATED so rocket stays FRONT during BL→TR arc (sin flipped)
+    // sa=0 at BL/TR edges, sa=-1 at center-front → depth=+OB → closest ✓
+    const depth    = -sa * OB;
+    const isBehind = depth < -OB * 0.05;
+
+    // Perspective: normDepth 0=far-behind → 1=front
+    const normDepth = (depth + OB) / (2 * OB);
+    const scale     = 0.32 + normDepth * 0.68;
+    const opacity   = isBehind
+      ? Math.max(0, normDepth * 0.35)
+      : Math.max(0.08, normDepth * 0.95 + 0.05);
+
+    /* Heading: tangent of orbit in screen space
+       d/da screenX = -sa * OA_DIAG
+       d/da screenY = +sa * OA_DIAG  (since screenY = CY - ca*OA_DIAG → d = sa*OA_DIAG ... wait)
+       d/da (CY - ca*OA_DIAG) = sa*OA_DIAG  → positive when sa>0
+       So tangent vector = (-sa*OA_DIAG, sa*OA_DIAG) — but this gives only ±45°.
+       Rocket points along travel direction: atan2(dy, dx) + PI/2 (nose = forward)
+    */
+    const tdx = -sa * OA_DIAG;
+    const tdy =  sa * OA_DIAG; // screen Y increases downward, so +sa = downward when sa>0
+    // Actually when going from bottom-left(a=PI) → top-right(a=2PI=0):
+    // a goes PI→2PI, sa goes 0→0 (negative in between), ca goes -1→+1
+    // tdx = -sa*K: sa negative between PI..2PI → tdx positive → going right ✓
+    // tdy = sa*K: negative → going up (screen -y) ✓
+    const rawH = Math.atan2(tdy, tdx) + Math.PI/2;
+
+    let diff = rawH - smoothH;
+    while(diff >  Math.PI) diff -= 2*Math.PI;
+    while(diff < -Math.PI) diff += 2*Math.PI;
+    smoothH += diff * 0.08;
+
+    return {x:screenX, y:screenY, h:smoothH, isBehind, opacity, scale, depth, normDepth};
+  }
+
+  function drawRocket(rk) {
+    const sz=4.0*rk.scale;
+    const op=rk.opacity;
+    if(op<0.03||sz<0.3) return;
+
+    // Glow
+    ctx.save();
+    ctx.globalAlpha=op*0.45;
+    ctx.translate(rk.x,rk.y);
+    const gg=ctx.createRadialGradient(0,0,0,0,0,sz*1.8);
+    gg.addColorStop(0,'rgba(240,171,252,0.5)');
+    gg.addColorStop(1,'rgba(124,58,237,0)');
+    ctx.beginPath(); ctx.arc(0,0,sz*1.8,0,Math.PI*2);
+    ctx.fillStyle=gg; ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha=op;
+    ctx.translate(rk.x,rk.y);
+    ctx.rotate(rk.h);
+
+    // Flame
+    if(!rk.isBehind && op>0.3){
+      const fg=ctx.createLinearGradient(0,sz*0.4,0,sz*1.8);
+      fg.addColorStop(0,`rgba(251,191,36,${op*0.85})`);
+      fg.addColorStop(0.5,`rgba(248,100,100,${op*0.5})`);
+      fg.addColorStop(1,'rgba(139,92,246,0)');
+      ctx.beginPath();
+      ctx.moveTo(-sz*0.18,sz*0.4);
+      ctx.bezierCurveTo(-sz*0.28,sz*0.88,sz*0.28,sz*0.88,sz*0.18,sz*0.4);
+      ctx.bezierCurveTo(sz*0.08,sz*1.7,-sz*0.08,sz*1.7,-sz*0.18,sz*0.4);
+      ctx.fillStyle=fg; ctx.fill();
+    }
+
+    // Body
+    const bg=ctx.createLinearGradient(0,-sz,0,sz*0.6);
+    bg.addColorStop(0,`rgba(240,171,252,${op*0.72})`);
+    bg.addColorStop(1,`rgba(109,40,217,${op*0.52})`);
+    ctx.beginPath();
+    ctx.moveTo(0,-sz);
+    ctx.bezierCurveTo(sz*0.46,-sz*0.2,sz*0.46,sz*0.34,sz*0.24,sz*0.56);
+    ctx.lineTo(-sz*0.24,sz*0.56);
+    ctx.bezierCurveTo(-sz*0.46,sz*0.34,-sz*0.46,-sz*0.2,0,-sz);
+    ctx.fillStyle=bg; ctx.fill();
+
+    // Fins
+    ctx.beginPath();
+    ctx.moveTo(sz*0.22,sz*0.32); ctx.lineTo(sz*0.54,sz*0.64); ctx.lineTo(sz*0.24,sz*0.56);
+    ctx.fillStyle=`rgba(168,85,247,${op*0.46})`; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-sz*0.22,sz*0.32); ctx.lineTo(-sz*0.54,sz*0.64); ctx.lineTo(-sz*0.24,sz*0.56);
+    ctx.fillStyle=`rgba(168,85,247,${op*0.46})`; ctx.fill();
+
+    // Window
+    const wg=ctx.createRadialGradient(-sz*0.05,-sz*0.04,0,0,0,sz*0.22);
+    wg.addColorStop(0,`rgba(255,255,255,${op*0.3})`);
+    wg.addColorStop(1,`rgba(192,132,252,${op*0.07})`);
+    ctx.beginPath(); ctx.arc(0,sz*0.06,sz*0.22,0,Math.PI*2);
+    ctx.fillStyle=wg; ctx.fill();
+
+    ctx.restore();
+  }
+
+  let lastTS=null;
+  function draw(ts){
+    const dt=lastTS===null?0.016:Math.min((ts-lastTS)/1000,0.05);
+    lastTS=ts;
+
+    // Re-apply scale in case DPR changed (zoom)
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    const spin=orbitAngle*SPIN; // globe spin coupled to orbit time
+    const pn=NODES.map(([phi,th])=>proj(phi,th+spin));
+    const rk=rocketState(dt);
+    pushTail(rk.x,rk.y,rk.opacity);
+
+    // 1) Halo
+    const halo=ctx.createRadialGradient(CX,CY,R*0.3,CX,CY,R*1.65);
+    halo.addColorStop(0,'rgba(109,40,217,0.22)');
+    halo.addColorStop(0.55,'rgba(139,92,246,0.09)');
+    halo.addColorStop(1,'rgba(109,40,217,0)');
+    ctx.beginPath(); ctx.arc(CX,CY,R*1.65,0,Math.PI*2);
+    ctx.fillStyle=halo; ctx.fill();
+
+    // 2) Globe glass
+    const gf=ctx.createRadialGradient(CX-3,CY-3.5,0.5,CX,CY,R);
+    gf.addColorStop(0,'rgba(192,132,252,0.16)');
+    gf.addColorStop(0.55,'rgba(109,40,217,0.08)');
+    gf.addColorStop(1,'rgba(55,48,163,0.04)');
+    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+    ctx.fillStyle=gf; ctx.fill();
+
+    // 3) Rocket behind (ghost) + tail
+    if(rk.isBehind){ drawTail(); drawRocket(rk); }
+
+    // 4) Constellation lines + shooting stars
+    EDGES.forEach(([ai,bi],ei)=>{
+      const na=NODES[ai], nb=NODES[bi];
+      const za=pn[ai].z, zb=pn[bi].z;
+      const avgZ=(za+zb)*0.5;
+      if(avgZ<-0.12) return;
+      const vis=Math.max(0,Math.min(1,(avgZ+0.12)/0.88));
+
+      const pts=greatArc(na[0],na[1]+spin,nb[0],nb[1]+spin,8);
+
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);
+      for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k].x,pts[k].y);
+      ctx.strokeStyle=`rgba(167,139,250,${vis*0.70})`;
+      ctx.lineWidth=0.55; ctx.stroke();
+
+      // Shooting star
+      const p=pulses[ei];
+      p.t+=p.spd*dt;
+      if(p.t>1.18){p.t=-0.06; p.spd=0.12+Math.random()*0.24;}
+      const pt=Math.max(0,Math.min(1,p.t));
+      if(pt<=0||pt>=1) return;
+
+      const fi=pt*(pts.length-1);
+      const i0=Math.floor(fi),i1=Math.min(i0+1,pts.length-1);
+      const fr=fi-i0;
+      const hx=pts[i0].x+(pts[i1].x-pts[i0].x)*fr;
+      const hy=pts[i0].y+(pts[i1].y-pts[i0].y)*fr;
+      const hz=pts[i0].z+(pts[i1].z-pts[i0].z)*fr;
+      const df=Math.max(0.1,(hz+0.5)/1.3);
+      const ti=Math.max(0,i0-2);
+      const tx=pts[ti].x,ty=pts[ti].y;
+      if(Math.abs(hx-tx)<0.001&&Math.abs(hy-ty)<0.001) return;
+
+      const lg=ctx.createLinearGradient(tx,ty,hx,hy);
+      lg.addColorStop(0,'rgba(216,180,254,0)');
+      lg.addColorStop(1,`rgba(248,215,255,${vis*df*1.65})`);
+      ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(hx,hy);
+      ctx.strokeStyle=lg; ctx.lineWidth=0.8; ctx.stroke();
+
+      const dg=ctx.createRadialGradient(hx,hy,0,hx,hy,1.8);
+      dg.addColorStop(0,`rgba(255,235,255,${vis*df*1.45})`);
+      dg.addColorStop(1,'rgba(200,150,255,0)');
+      ctx.beginPath(); ctx.arc(hx,hy,1.8,0,Math.PI*2);
+      ctx.fillStyle=dg; ctx.fill();
+    });
+
+    // 5) Nodes
+    pn.forEach(n=>{
+      if(n.z<-0.18) return;
+      const a=Math.max(0,Math.min(1,(n.z+0.18)/1.0))*0.85;
+      const ng=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,2.1);
+      ng.addColorStop(0,`rgba(216,180,254,${a*0.72})`);
+      ng.addColorStop(1,'rgba(139,92,246,0)');
+      ctx.beginPath(); ctx.arc(n.x,n.y,2.1,0,Math.PI*2); ctx.fillStyle=ng; ctx.fill();
+      ctx.beginPath(); ctx.arc(n.x,n.y,0.68,0,Math.PI*2);
+      ctx.fillStyle=`rgba(240,210,255,${a})`; ctx.fill();
+    });
+
+    // 6) Glass sheen
+    const sh=ctx.createRadialGradient(CX-3.5,CY-3.5,0.2,CX-1,CY-1,R*0.85);
+    sh.addColorStop(0,'rgba(255,255,255,0.10)');
+    sh.addColorStop(0.4,'rgba(255,255,255,0.03)');
+    sh.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.fillStyle=sh; ctx.fill();
+
+    // 7) Rocket front + tail
+    if(!rk.isBehind){ drawTail(); drawRocket(rk); }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+
+/* ─── ORYN COMET TEXT EFFECT ─── */
+(function(){
+  document.fonts.ready.then(init);
+
+  function init(){
+    const span = document.getElementById('orynSpan');
+    const cv   = document.getElementById('orynComet');
+    if(!span||!cv) return;
+
+    const DPR = Math.min(window.devicePixelRatio||1, 3);
+    let W, H, FS;
+
+    function resize(){
+      W  = span.offsetWidth  || 64;
+      H  = span.offsetHeight || 24;
+      FS = parseFloat(getComputedStyle(span).fontSize) || 22;
+      cv.width  = Math.round(W*DPR);
+      cv.height = Math.round(H*DPR);
+      cv.style.width  = W+'px';
+      cv.style.height = H+'px';
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const ctx = cv.getContext('2d');
+
+    /* ── Sample real glyph outline via offscreen render ── */
+    function buildGlyphPath(){
+      const SCALE = 4;
+      const OW = Math.ceil(W*SCALE), OH = Math.ceil(H*SCALE);
+      const oc = document.createElement('canvas');
+      oc.width=OW; oc.height=OH;
+      const ox=oc.getContext('2d');
+      ox.clearRect(0,0,OW,OH);
+      ox.font=`700 ${FS*SCALE}px Outfit,sans-serif`;
+      ox.fillStyle='#fff';
+      ox.textBaseline='middle';
+      ox.fillText('ORYN', 0, OH/2);
+
+      const id=ox.getImageData(0,0,OW,OH);
+      const d=id.data;
+      const filled=(x,y)=>{
+        if(x<0||y<0||x>=OW||y>=OH) return false;
+        return d[(y*OW+x)*4+3]>30;
+      };
+
+      // Collect top and bottom edge per column
+      const topPts=[], botPts=[];
+      for(let x=0;x<OW;x++){
+        let top=-1, bot=-1;
+        for(let y=0;y<OH;y++){ if(filled(x,y)){top=y;break;} }
+        for(let y=OH-1;y>=0;y--){ if(filled(x,y)){bot=y;break;} }
+        if(top>=0){
+          topPts.push({x:x/SCALE, y:top/SCALE});
+          botPts.push({x:x/SCALE, y:bot/SCALE});
+        }
+      }
+      if(topPts.length===0) return null;
+
+      // Smooth outline: top L→R, bottom R→L, closed
+      const outline=[...topPts, ...[...botPts].reverse(), topPts[0]];
+
+      // Subsample to ~200 evenly-spaced points — removes column-by-column jitter
+      const total = outline.length;
+      const TARGET = 200;
+      const step = total / TARGET;
+      const simplified = [];
+      for(let i=0;i<TARGET;i++){
+        const idx = Math.round(i*step) % total;
+        simplified.push(outline[idx]);
+      }
+      simplified.push(simplified[0]); // close
+      return simplified;
+    }
+
+    /* Catmull-Rom → dense smooth path */
+    function catmull(pts, stepsPerSeg){
+      const out=[], n=pts.length;
+      for(let i=0;i<n-1;i++){
+        const p0=pts[Math.max(0,i-1)];
+        const p1=pts[i];
+        const p2=pts[i+1];
+        const p3=pts[Math.min(n-1,i+2)];
+        for(let j=0;j<stepsPerSeg;j++){
+          const t=j/stepsPerSeg, t2=t*t, t3=t2*t;
+          const x=0.5*((-p0.x+3*p1.x-3*p2.x+p3.x)*t3+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+p2.x)*t+2*p1.x);
+          const y=0.5*((-p0.y+3*p1.y-3*p2.y+p3.y)*t3+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+p2.y)*t+2*p1.y);
+          out.push({x,y});
+        }
+      }
+      out.push(pts[n-1]);
+      return out;
+    }
+
+    /* Arc-length reparametrize so comet moves at constant SPEED not constant index */
+    function arcLength(pts){
+      const lens=[0];
+      for(let i=1;i<pts.length;i++){
+        const dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y;
+        lens.push(lens[i-1]+Math.sqrt(dx*dx+dy*dy));
+      }
+      return lens;
+    }
+
+    function resampleByArcLength(pts, targetCount){
+      const lens=arcLength(pts);
+      const total=lens[lens.length-1];
+      const out=[];
+      for(let k=0;k<targetCount;k++){
+        const target=(k/targetCount)*total;
+        // binary search
+        let lo=0, hi=lens.length-1;
+        while(hi-lo>1){ let mid=(lo+hi)>>1; if(lens[mid]<=target) lo=mid; else hi=mid; }
+        const t=(target-lens[lo])/(lens[hi]-lens[lo]||1);
+        out.push({
+          x:pts[lo].x+(pts[hi].x-pts[lo].x)*t,
+          y:pts[lo].y+(pts[hi].y-pts[lo].y)*t
+        });
+      }
+      out.push(out[0]); // close
+      return out;
+    }
+
+    let path = null;
+    function buildPath(){
+      const raw = buildGlyphPath();
+      if(!raw) return;
+      const smooth = catmull(raw, 5);       // smooth out sharp corners
+      path = resampleByArcLength(smooth, 600); // 600 evenly-spaced points
+    }
+    buildPath();
+
+    /* ── Comet — long tail, constant speed ── */
+    // Tail: store last N path-indices, draw segments between them
+    const TAIL_LEN = 120;  // long tail — covers ~20% of path
+    const tailX = new Float32Array(TAIL_LEN);
+    const tailY = new Float32Array(TAIL_LEN);
+    let tPtr = 0, tFill = 0;
+
+    function pushTail(x,y){
+      tailX[tPtr]=x; tailY[tPtr]=y;
+      tPtr=(tPtr+1)%TAIL_LEN;
+      if(tFill<TAIL_LEN) tFill++;
+    }
+
+    // State
+    let pathIdx  = 0;       // current index into path[] (integer steps)
+    let phase    = 'run';   // 'run' | 'pause'
+    let pauseT   = 0;
+    const STEP_PER_SEC = 28; // path-points per second — slow, smooth
+    const PAUSE_DUR    = 2.5;
+
+    function reset(){
+      tFill=0; tPtr=0; pathIdx=0; phase='run';
+      buildPath();
+    }
+
+    let lastTS=null;
+    function draw(ts){
+      const dt = lastTS===null ? 0.016 : Math.min((ts-lastTS)/1000, 0.05);
+      lastTS = ts;
+
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      ctx.clearRect(0,0,W,H);
+
+      if(phase==='pause'){
+        pauseT -= dt;
+        if(pauseT<=0) reset();
+        requestAnimationFrame(draw);
+        return;
+      }
+
+      if(!path || path.length<2){ requestAnimationFrame(draw); return; }
+
+      // Advance index
+      pathIdx += STEP_PER_SEC * dt;
+
+      if(pathIdx >= path.length - 1){
+        phase='pause'; pauseT=PAUSE_DUR;
+        requestAnimationFrame(draw);
+        return;
+      }
+
+      const i0  = Math.floor(pathIdx);
+      const fr  = pathIdx - i0;
+      const i1  = Math.min(i0+1, path.length-1);
+      const px  = path[i0].x + (path[i1].x-path[i0].x)*fr;
+      const py  = path[i0].y + (path[i1].y-path[i0].y)*fr;
+      pushTail(px, py);
+
+      /* ── Draw tail ──
+         Segments from head backward. Each segment:
+         - thinner + more transparent toward tip
+         - shadowBlur increases toward tip (blurry fade)
+         - color: white → warm white → transparent yellow-white
+      */
+      ctx.save();
+      ctx.lineCap  = 'round';
+      ctx.lineJoin = 'round';
+
+      const tailCount = Math.min(tFill, TAIL_LEN);
+      for(let ti=1; ti<tailCount; ti++){
+        const idxA = (tPtr - ti     + TAIL_LEN) % TAIL_LEN;
+        const idxB = (tPtr - ti - 1 + TAIL_LEN) % TAIL_LEN;
+        const tf   = ti / TAIL_LEN;
+
+        const alpha = Math.pow(1-tf, 1.6) * 0.39;
+        const lw    = Math.pow(1-tf, 0.7) * 2.2 + 0.12;
+
+        if(alpha < 0.006) break;
+
+        ctx.shadowColor = 'rgba(255,248,200,' + (alpha*0.5) + ')';
+        ctx.shadowBlur  = tf * 9;
+
+        const cr = 255;
+        const cg = Math.round(248 + tf*4);
+        const cb2 = Math.round(230 - tf*80);
+        ctx.beginPath();
+        ctx.moveTo(tailX[idxB], tailY[idxB]);
+        ctx.lineTo(tailX[idxA], tailY[idxA]);
+        ctx.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb2 + ',' + alpha + ')';
+        ctx.lineWidth   = lw;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      /* ── Head ── */
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,252,200,0.7)';
+      ctx.shadowBlur  = 5;
+
+      const halo = ctx.createRadialGradient(px,py,0,px,py,4.5);
+      halo.addColorStop(0,'rgba(255,255,230,0.11)');
+      halo.addColorStop(1,'rgba(255,240,160,0)');
+      ctx.beginPath(); ctx.arc(px,py,4.5,0,Math.PI*2);
+      ctx.fillStyle=halo; ctx.fill();
+
+      const core = ctx.createRadialGradient(px,py,0,px,py,1.5);
+      core.addColorStop(0,'rgba(255,255,255,0.5)');
+      core.addColorStop(0.45,'rgba(255,252,210,0.45)');
+      core.addColorStop(1,'rgba(255,235,140,0)');
+      ctx.beginPath(); ctx.arc(px,py,1.5,0,Math.PI*2);
+      ctx.fillStyle=core; ctx.fill();
+      ctx.restore();
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  }
+})();
+
+
+/* ─── HEADBAR MOBILE TOGGLE ─── */
+document.getElementById('hbToggle').addEventListener('click',()=>{
+  const nav=document.getElementById('hbNav');
+  const icon=document.getElementById('hbIcon');
+  nav.classList.toggle('open');
+  icon.textContent=nav.classList.contains('open')?'close':'menu';
+});
 
 </script>
 </body>
